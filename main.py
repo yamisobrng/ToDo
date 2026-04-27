@@ -18,7 +18,24 @@ TAG_COLORS = {
 
 DEFAULT_TAGS = list(TAG_COLORS.keys())
 
+## @file main.py
+#  @brief Главный файл приложения
 
+## @defgroup database Работа с базой данных
+#  @brief Функции для создания таблиц и выполнения CRUD-операций.
+
+## @defgroup auth Авторизация и регистрация
+#  @brief Функции для управления учетными записями пользователей.
+
+## @defgroup ui Интерфейс приложения
+#  @brief Функции, отвечающие за отрисовку элементов Streamlit.
+
+
+## @ingroup database
+#  @brief Создает таблицы в базе данных SQLite, если они еще не существуют.
+#
+#  Создаются две таблицы: `users` (для хранения пользователей и хэшей паролей)
+#  и `tasks` (для хранения задач с привязкой к ID пользователя).
 def create_tables():
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -46,6 +63,14 @@ def create_tables():
 create_tables()
 
 
+## @ingroup auth
+#  @brief Регистрирует нового пользователя в системе.
+#
+#  @param username Желаемое имя пользователя.
+#  @param password Пароль в открытом виде (в базу сохраняется хэш SHA-256).
+#
+#  @return True  Пользователь успешно зарегистрирован.
+#  @return False Ошибка регистрации (пользователь с таким именем уже существует).
 def register_user(username, password):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -59,6 +84,14 @@ def register_user(username, password):
             return False
 
 
+## @ingroup auth
+#  @brief Проверяет учетные данные при входе в систему.
+#
+#  @param username Имя пользователя.
+#  @param password Введенный пароль.
+#
+#  @return tuple  Кортеж с ID пользователя, если проверка пройдена.
+#  @return None   Если логин или пароль неверны.
 def verify_user(username, password):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -68,6 +101,12 @@ def verify_user(username, password):
         return cursor.fetchone()
 
 
+## @ingroup database
+#  @brief Получает список всех задач для конкретного пользователя.
+#
+#  @param user_id Уникальный идентификатор пользователя в БД.
+#
+#  @return list Список словарей, где каждый словарь содержит данные одной задачи.
 def get_tasks(user_id):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -81,6 +120,11 @@ def get_tasks(user_id):
         } for row in cursor.fetchall()]
 
 
+## @ingroup database
+#  @brief Добавляет новую задачу в базу данных.
+#
+#  @param user_id   ID пользователя, которому принадлежит задача.
+#  @param task_data Словарь с данными задачи (id, title, description, status, tags).
 def add_task(user_id, task_data):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -97,6 +141,12 @@ def add_task(user_id, task_data):
         ))
         conn.commit()
 
+
+## @ingroup ui
+#  @brief Отрисовывает вкладки входа и регистрации.
+#
+#  Обрабатывает ввод данных пользователем и управляет состоянием сессии
+#  Streamlit (`st.session_state.user`).
 def auth_form():
     login_tab, register_tab = st.tabs(["Вход", "Регистрация"])
 
@@ -125,6 +175,12 @@ def auth_form():
                 else:
                     st.error("Имя пользователя уже занято")
 
+
+## @ingroup database
+#  @brief Обновляет текущий статус задачи (колонка на доске).
+#
+#  @param task_id    Уникальный UUID задачи.
+#  @param new_status Новый статус ('todo', 'in_progress', 'done').
 def update_task_status(task_id, new_status):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -132,6 +188,10 @@ def update_task_status(task_id, new_status):
         conn.commit()
 
 
+## @ingroup database
+#  @brief Полностью удаляет задачу из базы данных.
+#
+#  @param task_id Уникальный UUID задачи для удаления.
 def delete_task(task_id):
     with closing(sqlite3.connect(DATABASE)) as conn:
         cursor = conn.cursor()
@@ -139,11 +199,24 @@ def delete_task(task_id):
         conn.commit()
 
 
+## @ingroup ui
+#  @brief Генерирует HTML-разметку для цветного ярлыка (тега).
+#
+#  @param tag Название тега (например, 'важно', 'работа').
+#
+#  @return str Строка с HTML и inline-стилями для корректного отображения цвета.
 def tag_element(tag):
     color = TAG_COLORS.get(tag, '#CCCCCC')
     return f'<span style="background-color: {color}; color: black; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">{tag}</span>'
 
 
+## @ingroup ui
+#  @brief Отрисовывает визуальную карточку конкретной задачи.
+#
+#  Выводит заголовок, описание, цветные теги и кнопки управления статусом
+#  (в работу, завершить, удалить).
+#
+#  @param task Словарь с данными задачи.
 def task_card(task):
     with st.container(border=True):
         st.markdown(f"**{task['title']}**", unsafe_allow_html=True)
@@ -178,6 +251,11 @@ def task_card(task):
                 st.rerun()
 
 
+## @ingroup ui
+#  @brief Отрисовывает главный интерфейс после успешной авторизации.
+#
+#  Включает в себя форму создания новой задачи и три колонки Kanban-доски
+#  ('Сделать', 'В работе', 'Выполнено').
 def main_app():
     st.title("🚀 Персональный менеджер заметок")
 
